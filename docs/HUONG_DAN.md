@@ -19,6 +19,10 @@ hướng dẫn sử dụng theo vai trò và cách đưa mã nguồn lên GitHub
 
 ### 1.2. Tạo database
 
+Chọn một trong hai cách dưới đây. Nếu PostgreSQL cài sẵn đã chạy ở cổng 5432, hãy dùng dịch vụ đó;
+không khởi động thêm Docker trên cùng cổng. Nếu database và tài khoản đã tồn tại, giữ nguyên dữ liệu,
+user/mật khẩu và cấu hình `DATABASE_URL` phù hợp; không cần chạy lại các lệnh tạo bên dưới.
+
 **Cách A – dùng Docker** (tại thư mục gốc dự án):
 
 ```bash
@@ -78,10 +82,11 @@ Tạo bảng, nạp dữ liệu mẫu và chạy server:
 ```bash
 flask db upgrade              # chạy migration -> tạo 7 bảng
 flask seed                    # tài khoản demo, thông tin bãi, 3 loại xe, bảng giá
-flask run --port 5000
+flask run --host 127.0.0.1 --port 5000
 ```
 
-Kiểm tra: mở <http://localhost:5000/api/health> → `{"status": "ok"}`.
+Kiểm tra: mở <http://127.0.0.1:5000/api/health> → `{"status": "ok"}`. Endpoint này chỉ xác nhận
+backend đang phản hồi, chưa xác nhận kết nối PostgreSQL vì không truy vấn database.
 
 ### 1.4. Chạy frontend (React + Vite)
 
@@ -93,8 +98,10 @@ npm install
 npm run dev
 ```
 
-Truy cập <http://localhost:5173>. Khi chạy dev, Vite tự chuyển tiếp mọi request `/api/...` sang
-`http://localhost:5000` (cấu hình trong `vite.config.js`), nên không cần chỉnh CORS.
+Truy cập <http://127.0.0.1:5173>. Khi chạy dev, Vite tự chuyển tiếp mọi request `/api/...` sang
+`http://127.0.0.1:5000` (cấu hình trong `vite.config.js`). Giữ `VITE_API_URL` trống để dùng proxy;
+không cần chỉnh CORS. Vite dùng cố định cổng 5173 và báo lỗi nếu cổng đã bị chiếm.
+Địa chỉ `127.0.0.1` giúp tránh trường hợp `localhost` trỏ sang IPv6 `::1` và gọi nhầm dịch vụ khác.
 
 ### 1.5. Tài khoản demo
 
@@ -104,6 +111,7 @@ Truy cập <http://localhost:5173>. Khi chạy dev, Vite tự chuyển tiếp m�
 | Nhân viên bãi xe | `staff` | `staff123` |
 
 Đặt mật khẩu khác ngay khi seed: `flask seed --admin-password <mk1> --staff-password <mk2>`.
+Seed chỉ tạo tài khoản chưa tồn tại, không đặt lại mật khẩu tài khoản đã có.
 
 ### 1.6. Chạy test tự động
 
@@ -117,9 +125,12 @@ python -m pytest -q           # 21 test, chạy trên database parking_test
 | Hiện tượng | Nguyên nhân / cách xử lý |
 |---|---|
 | `connection refused ... 5432` | PostgreSQL chưa chạy, hoặc sai host/cổng trong `DATABASE_URL` |
-| `password authentication failed for user "parking"` | Sai user/mật khẩu; kiểm tra lại bước 1.2 |
+| `password authentication failed for user "parking"` | Sai thông tin kết nối PostgreSQL; đối chiếu `DATABASE_URL` với dịch vụ đang dùng, không tự đổi mật khẩu database |
 | `Error: Could not locate a Flask application` | Chưa có `FLASK_APP=wsgi.py` trong `.env`, hoặc đang đứng sai thư mục (phải ở `backend/`) |
-| Frontend báo *Không kết nối được máy chủ* | Backend chưa chạy ở cổng 5000 |
+| Frontend báo *Không kết nối được máy chủ* | Kiểm tra backend tại `http://127.0.0.1:5000/api/health` và địa chỉ API; frontend không nhận được HTTP response |
+| Đăng nhập trả HTML `404` hoặc *Đã xảy ra lỗi, vui lòng thử lại* qua `localhost` | Có thể đang gọi nhầm dịch vụ trên IPv6 `::1`; dùng `http://127.0.0.1:5173` và proxy `http://127.0.0.1:5000`. HTML `404` không chứng minh lỗi database |
+| `401 INVALID_CREDENTIALS` / *Tên đăng nhập hoặc mật khẩu không đúng* | Backend đã truy vấn bảng tài khoản nhưng không tìm thấy user hoặc mật khẩu không khớp; kiểm tra tài khoản trong đúng database |
+| `500 INTERNAL_ERROR` / *Lỗi hệ thống, vui lòng thử lại* | Xem traceback ở terminal backend để xác định nguyên nhân. Lỗi kết nối PostgreSQL hoặc thiếu bảng có thể gây `500`; không đồng nghĩa sai mật khẩu đăng nhập |
 | Đăng nhập xong bị đẩy ra ngay | `JWT_SECRET_KEY` đã bị đổi trong lúc đang đăng nhập → đăng nhập lại |
 | `relation "users" does not exist` | Chưa chạy `flask db upgrade` |
 

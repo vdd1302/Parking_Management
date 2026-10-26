@@ -112,7 +112,7 @@ cp .env.example .env               # sửa DATABASE_URL, SECRET_KEY, JWT_SECRET_
 
 flask db upgrade                   # tạo bảng
 flask seed                         # dữ liệu mẫu + tài khoản demo
-flask run --port 5000
+flask run --host 127.0.0.1 --port 5000
 ```
 
 Tài khoản demo sau khi seed:
@@ -129,7 +129,7 @@ Tài khoản demo sau khi seed:
 ```bash
 cd frontend
 npm install
-npm run dev                        # http://localhost:5173 (proxy /api -> http://localhost:5000)
+npm run dev                        # http://127.0.0.1:5173 (proxy /api -> http://127.0.0.1:5000)
 ```
 
 Build production: `npm run build` → thư mục `dist/`. Nếu frontend và API khác domain, đặt `VITE_API_URL`
